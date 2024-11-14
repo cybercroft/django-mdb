@@ -31,12 +31,15 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    # Django apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # My apps
+    'inventory',
 ]
 
 MIDDLEWARE = [
@@ -76,9 +79,19 @@ WSGI_APPLICATION = 'mdb.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        'NAME': BASE_DIR / 'db_default.sqlite3',  # Main database
+    },
+    'v1.1.0': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db_v_1_1_0.sqlite3',  # Version 1.1.0
+    },
+    'v1.0.0': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db_v_1_0_0.sqlite3',  # Version 1.0.0
+    },
 }
+
+DATABASE_ROUTERS = ['inventory.db_router.VersionDatabaseRouter']
 
 
 # Password validation
