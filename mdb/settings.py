@@ -81,11 +81,11 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db_default.sqlite3',  # Main database
     },
-    'v1.1.0': {
+    '1.1.0': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db_v_1_1_0.sqlite3',  # Version 1.1.0
     },
-    'v1.0.0': {
+    '1.0.0': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db_v_1_0_0.sqlite3',  # Version 1.0.0
     },
