@@ -1,8 +1,8 @@
 # inventory/management/commands/import_products.py
-import csv
 import os
+import csv
 from django.core.management.base import BaseCommand, CommandError
-from inventory.models import Product
+from inventory.utils import import_products 
 from django.conf import settings
 
 class Command(BaseCommand):
@@ -10,10 +10,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--version', 
+            '--ver', 
             type=str, 
             default='default', 
-            help='Database version to import data into (e.g., 1.0.0). Defaults to "default".'
+            help='Database version to import data into (e.g., "1.0.0"). Defaults to "default".'
         )
         parser.add_argument(
             '--file', 
@@ -23,9 +23,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        version = options['version']
+        version = options['ver']
         file_path = options['file']
-        database_alias = version  # Set the version directly as the alias
+        database_alias = version  # Use version string as the alias
 
         # Check if the specified database exists
         if database_alias not in settings.DATABASES:
@@ -35,22 +35,24 @@ class Command(BaseCommand):
         if not os.path.isfile(file_path):
             raise CommandError(f"File '{file_path}' does not exist.")
 
-        # Open the CSV file and import each row
+        # Open the CSV file and prepare data for import
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
-            products_created = 0
+            data = []
 
             for row in reader:
-                product, created = Product.objects.using(database_alias).update_or_create(
-                    name=row['name'],
-                    defaults={
-                        'price': float(row['price']),
-                        'stock': int(row['stock']),
-                    }
-                )
-                if created:
-                    products_created += 1
+                # Prepare data for each product
+                product_data = {
+                    'name': row['name'],
+                    'price': float(row['price']),
+                    'stock': int(row['stock']),
+                    'category': row.get('category', 'Unknown')  # Handle category if it exists
+                }
+                data.append(product_data)
+
+            # Call the utility function to import the data
+            import_products(data, version=database_alias)
 
             self.stdout.write(self.style.SUCCESS(
-                f"Successfully imported {products_created} products into '{database_alias}' from '{file_path}'."
+                f"Successfully imported {len(data)} products into '{database_alias}' from '{file_path}'."
             ))
