@@ -1,0 +1,12 @@
+*__pycache__*
+*.vscode
+*.ipynb*
+*.sqlite3
+*.sql
+*.patch
+
+venv/**/*
+venv
+.git
+.gitignore
+README.md

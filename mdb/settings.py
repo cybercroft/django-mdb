@@ -9,23 +9,22 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&m4i)a4-akl69^-_sfkw#gp@#sy5cdzz%38_9q9!%2o6#txy#d'
+INSECURE_KEY = 'django-insecure-&m4i)a4-akl69^-_sfkw#gp@#sy5cdzz%38_9q9!%2o6#txy#d'
+SECRET_KEY = os.environ.get("SECRET_KEY", default=INSECURE_KEY)
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = int(os.environ.get("DEBUG", default=1))
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", default="127.0.0.1").split(",")
 
 
 # Application definition
@@ -73,25 +72,18 @@ TEMPLATES = [
 WSGI_APPLICATION = 'mdb.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/3.2/ref/settings/#databases
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_default.sqlite3',  # Main database
-    },
-    '1.1.0': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_v_1_1_0.sqlite3',  # Version 1.1.0
-    },
-    '1.0.0': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_v_1_0_0.sqlite3',  # Version 1.0.0
-    },
-}
+MEDIA_URL = '/media/'
+STATIC_URL = '/static/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-DATABASE_ROUTERS = ['inventory.db_router.VersionDatabaseRouter']
+IMPORT_DIR = 'import'
+EXPORT_DIR = 'export'
+
+IMPORT_PATH = os.path.join(MEDIA_ROOT, IMPORT_DIR)
+EXPORT_PATH = os.path.join(MEDIA_ROOT, EXPORT_DIR)
 
 
 # Password validation
@@ -118,7 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = os.environ.get('TIME_ZONE', default='UTC')
 
 USE_I18N = True
 
@@ -127,12 +119,65 @@ USE_L10N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/3.2/howto/static-files/
-
-STATIC_URL = '/static/'
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Database
+# https://docs.djangoproject.com/en/3.2/ref/settings/#databases
+
+# Set the database versions here
+DB_VERSIONS_DEFAULT = [
+    '1.0.0', 
+    '1.0.1', 
+    '1.0.2', 
+    '1.1.0',
+]
+
+# Set the active database versions here
+DB_VERSIONS_ACTIVE_DEFAULT = [
+    '1.0.2', 
+    '1.1.0'
+]
+
+# Get the database versions from the environment (if any)
+db_versions = os.environ.get('DB_VERSIONS', None)
+DB_VERSIONS = DB_VERSIONS_DEFAULT if db_versions is None else db_versions.split(',')
+    
+db_versions_active = os.environ.get('DB_VERSIONS_ACTIVE', None)
+DB_VERSIONS_ACTIVE = DB_VERSIONS_ACTIVE_DEFAULT if db_versions_active is None else db_versions_active.split(',')
+
+db_password = os.environ.get('POSTGRES_PASSWORD', 'db_password')
+db_user = os.environ.get('POSTGRES_USER', 'db_user')
+db_name = os.environ.get('POSTGRES_DB', 'db_default')
+db_engine = os.environ.get('DB_ENGINE', 'django.db.backends.postgresql')
+db_host = os.environ.get('DB_HOST', 'localhost')
+db_port = os.environ.get('DB_PORT', '5432')
+
+# Set the Main database (stuff not depending on version)
+DATABASES = {
+    'default': {
+        'ENGINE': db_engine,
+        'NAME': db_name,
+        'USER': db_user,
+        'PASSWORD': db_password,
+        'HOST': db_host,
+        'PORT': db_port,
+        'VERSION': 'default',
+    }
+}
+
+for version in DB_VERSIONS:
+    DATABASES[version] = {
+        'ENGINE': db_engine,
+        'NAME': f'db_{version}',
+        'USER': db_user,
+        'PASSWORD': db_password,
+        'HOST': db_host,
+        'PORT': db_port,
+        'VERSION': version,
+    }
+
+
+DATABASE_ROUTERS = ['inventory.db_router.VersionDatabaseRouter']
