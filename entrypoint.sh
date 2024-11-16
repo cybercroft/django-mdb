@@ -19,7 +19,9 @@ if [ "$DATABASE" = "postgres" ]; then
     echo "PostgreSQL started"
 fi
 
-# Run migrations and collect static files after database is ready
+echo "Creating databases..."
+python manage.py create_databases
+
 echo "Running migrations..."
 python manage.py migrate_all
 

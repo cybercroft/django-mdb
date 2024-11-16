@@ -18,13 +18,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 INSECURE_KEY = 'django-insecure-&m4i)a4-akl69^-_sfkw#gp@#sy5cdzz%38_9q9!%2o6#txy#d'
-SECRET_KEY = os.environ.get("SECRET_KEY", default=INSECURE_KEY)
+SECRET_KEY = os.getenv("SECRET_KEY", default=INSECURE_KEY)
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = int(os.environ.get("DEBUG", default=1))
+DEBUG = int(os.getenv("DEBUG", default=1))
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", default="127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", default="127.0.0.1").split(",")
 
 
 # Application definition
@@ -110,7 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = os.environ.get('TIME_ZONE', default='UTC')
+TIME_ZONE = os.getenv('TIME_ZONE', default='UTC')
 
 USE_I18N = True
 
@@ -127,33 +127,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-# Set the database versions here
-DB_VERSIONS_DEFAULT = [
-    '1.0.0', 
-    '1.0.1', 
-    '1.0.2', 
-    '1.1.0',
-]
+# Get the active database versions from the environment (if any)
+db_versions_active = os.getenv('DB_VERSIONS_ACTIVE', None)
+DB_VERSIONS_ACTIVE = [] if db_versions_active is None else db_versions_active.split(',')
 
-# Set the active database versions here
-DB_VERSIONS_ACTIVE_DEFAULT = [
-    '1.0.2', 
-    '1.1.0'
-]
+# Ensure the import_path exists (create if necessary)
+import_path_obj = Path(IMPORT_PATH)
+if not import_path_obj.exists():
+    import_path_obj.mkdir(parents=True, exist_ok=True)
 
-# Get the database versions from the environment (if any)
-db_versions = os.environ.get('DB_VERSIONS', None)
-DB_VERSIONS = DB_VERSIONS_DEFAULT if db_versions is None else db_versions.split(',')
-    
-db_versions_active = os.environ.get('DB_VERSIONS_ACTIVE', None)
-DB_VERSIONS_ACTIVE = DB_VERSIONS_ACTIVE_DEFAULT if db_versions_active is None else db_versions_active.split(',')
+# Get a list of all subfolders (database versions) in the import folder
+DB_VERSIONS = [f.name for f in import_path_obj.iterdir() if f.is_dir()]
 
-db_password = os.environ.get('POSTGRES_PASSWORD', 'db_password')
-db_user = os.environ.get('POSTGRES_USER', 'db_user')
-db_name = os.environ.get('POSTGRES_DB', 'db_default')
-db_engine = os.environ.get('DB_ENGINE', 'django.db.backends.postgresql')
-db_host = os.environ.get('DB_HOST', 'localhost')
-db_port = os.environ.get('DB_PORT', '5432')
+# Common database settings
+db_password = os.getenv('POSTGRES_PASSWORD', 'db_password')
+db_user = os.getenv('POSTGRES_USER', 'db_user')
+db_name = os.getenv('POSTGRES_DB', 'db_default')
+db_engine = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
+db_host = os.getenv('DB_HOST', 'localhost')
+db_port = os.getenv('DB_PORT', '5432')
 
 # Set the Main database (stuff not depending on version)
 DATABASES = {
@@ -164,20 +156,18 @@ DATABASES = {
         'PASSWORD': db_password,
         'HOST': db_host,
         'PORT': db_port,
-        'VERSION': 'default',
     }
 }
 
+# Set other databases (stuff depending on version)
 for version in DB_VERSIONS:
     DATABASES[version] = {
         'ENGINE': db_engine,
-        'NAME': f'db_{version}',
+        'NAME': version,
         'USER': db_user,
         'PASSWORD': db_password,
         'HOST': db_host,
         'PORT': db_port,
-        'VERSION': version,
     }
-
 
 DATABASE_ROUTERS = ['inventory.db_router.VersionDatabaseRouter']

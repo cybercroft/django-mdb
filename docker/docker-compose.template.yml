@@ -8,7 +8,6 @@ services:
       - ./.env/ver.env
     volumes:
       - mdb_data:/var/lib/postgresql/data/
-      - ./db_entrypoint.sh:/docker-entrypoint-initdb.d/entrypoint.sh
 
   web:
     build:
