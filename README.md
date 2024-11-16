@@ -27,17 +27,22 @@ List the database versions.
 docker compose exec web python manage.py list_versions
 ```
 
-
-Import data from CSV files to different databases
+Import data from CSV files for all databases
 ```bash
-python manage.py import_products --file csv/products_default.csv # default
-python manage.py import_products --ver 1.1.0  --file csv/products_v_1_1_0.csv
-python manage.py import_products --ver 1.0.0  --file csv/products_v_1_0_0.csv
+python manage.py import_products
 ```
 
-List data for each database
+Import data from CSV files per database
+```bash
+python manage.py import_products --ver 1.0.0
+```
+
+List data for all databases
 ```bash
 python manage.py list_products
-python manage.py list_products --ver 1.1.0
+```
+
+List data per database
+```bash
 python manage.py list_products --ver 1.0.0
 ```
