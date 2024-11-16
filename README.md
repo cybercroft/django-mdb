@@ -4,7 +4,7 @@ Docker engine is required.
 
 Generate the env files (and modify where necessary)
 ```bash
-python docker/generate_envs.py
+python envs/generate_envs.py
 ```
 
 Generate the docker-compose.yml file
@@ -14,7 +14,7 @@ python docker/generate_compose.py
 
 Start the app in docker:
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 Create subfolders in the `media/import` folder with names of versions and add the databases.
