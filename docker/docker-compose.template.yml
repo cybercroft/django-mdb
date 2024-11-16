@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env/db.env
-      - ./.env/ver.env
     volumes:
       - mdb_data:/var/lib/postgresql/data/
 
@@ -23,7 +22,6 @@ services:
       - 8000
     env_file:
       - ./.env/prod.env
-      - ./.env/ver.env
       - ./.env/db.env
     depends_on:
       - db

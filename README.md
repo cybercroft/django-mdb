@@ -1,10 +1,32 @@
 # django-mdb
-Django project example using multiple databases
+Django project example using multiple databases.
+Docker engine is required.
 
-Apply migrations to all databases 
+Generate the env files (and modify where necessary)
 ```bash
-python manage.py migrate_all
+python docker/generate_envs.py
 ```
+
+Generate the docker-compose.yml file
+```bash
+python docker/generate_compose.py
+```
+
+Start the app in docker:
+```bash
+docker compose up -d
+```
+
+Create subfolders in the `media/import` folder with names of versions and add the databases.
+```bash
+docker compose exec web python manage.py create_databases --migrate
+```
+
+List the database versions.
+```bash
+docker compose exec web python manage.py list_versions
+```
+
 
 Import data from CSV files to different databases
 ```bash
