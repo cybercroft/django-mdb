@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+{% load i18n %}
+{% load static %}
+
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>{% trans 'Inventory' %}</title>
+
+    <!-- Load custom styles -->
+    {% include "css.html" %}
+
+    <!-- Additional header -->
+    {% block header %}{% endblock %}
+    
+</head>
+
+<body class="d-flex flex-column">
+
+    <!-- Navigation -->
+    <header id="header" class="fixed-top ">
+        <div class="container d-flex">
+            <!-- Menu options -->
+            <nav id="navbar" class="navbar">
+            </nav>
+        </div>
+    </header>
+
+    <!-- Display content here -->
+    <main id="main" role="main" class="{% if main %}{{main}}{% else %}fill{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Add footer here -->
+    {% include 'footer.html' %}    
+
+    <!-- Optional JavaScript -->
+    {% include "js.html" %}
+
+    <!-- Additional JavaScript -->
+    {% block js %}{% endblock %}
+
+</body>
+</html>

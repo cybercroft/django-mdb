@@ -2,12 +2,11 @@ import os
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path
-from mdb.admin import admin_site  
+from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin_site.urls),  
-    # path('admin/', admin.site.urls),  
+    path('', include('inventory.urls')),
+    path('admin/', admin.site.urls),  
 ]
 
 if settings.DEBUG:
