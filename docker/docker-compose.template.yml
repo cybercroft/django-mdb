@@ -8,6 +8,11 @@ services:
     volumes:
       - mdb_data:/var/lib/postgresql/data/
 
+  redis:
+    image: redis:alpine 
+    container_name: mdb_redis
+    restart: always 
+
   web:
     build:
       context: .
@@ -22,7 +27,6 @@ services:
       - 8000
     env_file:
       - ./.env/prod.env
-      - ./.env/db.env
     depends_on:
       - db
 
@@ -37,6 +41,21 @@ services:
       - mdb_media:/usr/src/app/media
     depends_on:
       - web
+
+  celery:
+    build:
+      context: .
+    container_name: mdb_celery
+    restart: always 
+    command: celery -A mdb worker -l info -P threads --concurrency 4
+    env_file:
+      - ./.env/prod.env
+    volumes:
+      - mdb_media:/usr/src/app/media
+    depends_on:
+      - db
+      - web
+      - redis
 
 volumes:
   mdb_static:

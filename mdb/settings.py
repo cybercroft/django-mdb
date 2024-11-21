@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 3rd-party
+    'django_celery_results',
+    'celery_progress',    
     # My apps
     'inventory',
 ]
@@ -125,6 +128,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Celery & Redis
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_BROKER", "django-db")
+CELERY_TIMEZONE = os.getenv('TIME_ZONE','Europe/Athens')
+
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases

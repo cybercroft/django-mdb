@@ -1,0 +1,15 @@
+services:
+
+  db:
+    image: postgres:14.2-alpine
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    env_file:
+      - ../.env/db.env
+    volumes:
+      - postgresql-data:/var/lib/postgresql
+
+volumes:
+  postgresql-data:
+    driver: local

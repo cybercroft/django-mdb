@@ -119,7 +119,7 @@ def main():
 
     # Prepare merged dictionaries for each target file
     dev_info = merge_dicts(dev, base, db, ver)
-    prod_info = merge_dicts(prod, base, ver)
+    prod_info = merge_dicts(prod, base, db, ver)
     db_info = db
 
     # Generate target .env files
