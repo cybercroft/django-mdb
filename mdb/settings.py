@@ -81,7 +81,12 @@ WSGI_APPLICATION = 'mdb.wsgi.application'
 MEDIA_URL = '/media/'
 STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-if not DEBUG:
+
+if DEBUG:
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'inventory', 'static'),
+    ]
+else:
     STATIC_ROOT = os.path.join(BASE_DIR, 'static')
     
 IMPORT_DIR = 'import'

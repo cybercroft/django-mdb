@@ -19,22 +19,20 @@
 
     <!-- Additional header -->
     {% block header %}{% endblock %}
-    
+
 </head>
 
 <body class="d-flex flex-column">
 
     <!-- Navigation -->
     <header id="header" class="fixed-top ">
-        <div class="container d-flex">
-            <!-- Menu options -->
-            <nav id="navbar" class="navbar">
-            </nav>
-        </div>
+        <nav id="navbar" class="navbar navbar-expand-lg navbar-light bg-light">            
+            {% include 'options.html' %}    
+        </nav>
     </header>
 
     <!-- Display content here -->
-    <main id="main" role="main" class="{% if main %}{{main}}{% else %}fill{% endif %}">
+    <main id="main" role="main" class="{% if main %}{{main}}{% else %}fill{% endif %} mt-4">
         {% block content %}{% endblock %}
     </main>
 
