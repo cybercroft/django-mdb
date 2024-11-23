@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-4">Workflow Progress</h1>
+    <div class="row">
+        {% for db_alias, data in workflows.items %}
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    Workflow: {{ db_alias }}
+                </div>
+                <div class="card-body">
+                    <p>Progress: {{ data.progress_percent|floatformat:2 }}%</p>
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: {{ data.progress_percent }}%;" 
+                             aria-valuenow="{{ data.progress_percent }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ data.progress_percent|floatformat:2 }}%
+                        </div>
+                    </div>
+                    <h6>Tasks</h6>
+                    <ul class="list-group">
+                        {% for task in data.tasks %}
+                        <li class="list-group-item">
+                            <strong>{{ task.name }}</strong>
+                            <span class="badge {{ task.status|lower }}-badge float-end">
+                                {{ task.get_status_display }}
+                            </span>
+                            <div class="progress-wrapper py-2">
+                                <div class="progress">
+                                    <div id="progress-bar-{{ task.task_id }}" class="progress-bar task-progress-bar progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div id="progress-bar-message-{{ task.task_id }}" class="mt-2 text-center"></div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'celery_progress/celery_progress.js' %}"></script>
+<script>
+    function getProgress(progressBarElement, progressBarMessageElement, progress) {
+        if (progressBarElement) {
+            progressBarElement.style.width = progress.percent + "%";
+            progressBarElement.innerText = progress.percent + "%";
+        }
+        if (progressBarMessageElement) {
+            var description = progress.description || "";
+            if (progress.current === 0) {
+                if (progress.pending === true) {
+                    progressBarMessageElement.textContent = "Waiting...";
+                } else {
+                    progressBarMessageElement.textContent = "Started...";
+                }
+            } else {
+                progressBarMessageElement.textContent = description;
+            }
+        }
+    }
+
+    // Function to handle success
+    function progressSuccess(progressBarElement, progressBarMessageElement) {
+        if (progressBarMessageElement) {
+            progressBarMessageElement.textContent = "Task completed!";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for db_alias, data in workflows.items %}
+            {% for task in data.tasks %}
+                {% if task.task_id %}
+                    var urlProgress = "{% url 'celery_progress:task_status' task.task_id %}";
+                    CeleryProgressBar.initProgressBar(urlProgress, {
+                        onProgress: getProgress,
+                        onSuccess: progressSuccess,
+                        progressBarId: "progress-bar-{{task.task_id}}",
+                        progressBarMessageId: "progress-bar-message-{{task.task_id}}"
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    });
+</script>
+{% endblock %}

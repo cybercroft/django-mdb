@@ -2,7 +2,8 @@ from celery import group
 
 
 class WorkflowStep:
-    def __init__(self, tasks=[], parallel=True):
+    def __init__(self, name="", tasks:list=[], parallel=True):
+        self.name = name 
         self.tasks = tasks
         self.parallel = parallel
 
