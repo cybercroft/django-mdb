@@ -206,9 +206,13 @@ class ImportWorkflow(Workflow):
         
 
 @shared_task(bind=True)
+def run_workflow(self, db_alias):
+    workflow = ImportWorkflow(db_alias=db_alias)
+    workflow.setup()
+    workflow.run()
+    
+        
+@shared_task(bind=True)
 def run_all_workflows(self):
     databases = [db_alias for db_alias in settings.DATABASES if db_alias != "default"]
-    for db_alias in databases:
-        workflow = ImportWorkflow(db_alias=db_alias)
-        workflow.setup()
-        workflow.run()
+    return group(run_workflow(db_alias) for db_alias in databases)
