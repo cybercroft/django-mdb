@@ -1,7 +1,10 @@
+import json
 from django.views.decorators.cache import never_cache
 from django.shortcuts import render, redirect
+from celery_progress.views import get_progress
 from inventory.models import Product, Task
 from django.conf import settings
+from django.http import HttpResponse
 from .tasks import run_all_workflows
 
 
@@ -20,6 +23,21 @@ def list_all_products(request):
     return render(request, 'inventory/products/list.html', {'all_products': all_products})
 
 
+def list_all_tasks(request):
+    databases = set(settings.DATABASES.keys())
+    databases.remove("default")
+    all_tasks = {}
+
+    for db_alias in databases:
+        try:
+            tasks = Task.objects.using(db_alias).all()
+            all_tasks[db_alias] = tasks
+        except Exception as e:
+            all_tasks[db_alias] = f"Error fetching tasks: {e}"
+
+    return render(request, 'inventory/workflow/tasks.html', {'all_tasks': all_tasks})
+
+
 def workflow_progress(request):
     workflows = {}
     
@@ -28,7 +46,7 @@ def workflow_progress(request):
     
     # Group tasks by database alias
     for db_alias in databases:
-        tasks = Task.objects.using(db_alias).all().order_by('status', 'created_on')
+        tasks = Task.objects.using(db_alias).all().order_by('triggered_on', 'pk')
         progress_current = 0
         progress_total = 0
         for task in tasks:
@@ -48,3 +66,49 @@ def workflow_progress(request):
 def trigger_workflows(request):
     run_all_workflows.apply_async()
     return redirect('workflow_progress')
+
+
+def get_task_progress_pending():
+    return {
+        'state': "PENDING",
+        'complete': False,
+        'success': None,
+        'progress': {'pending': True, 'current': 0, 'total': 100, 'percent': 0}
+    }
+    
+    
+def get_task_progress_success():
+    return {
+        'state': "SUCCESS",
+        'complete': True,
+        'success': True,
+        'progress': {'pending': False, 'current': 100, 'total': 100, 'percent': 100}
+    }
+
+
+def get_task_progress_revoked():
+    return {
+        'state': "REVOKED",
+        'complete': True,
+        'success': None,
+        'progress': {'pending': False, 'current': 0, 'total': 100, 'percent': 0}
+    }
+
+
+@never_cache
+def task_progress(request, db, pk):
+    try:
+        task = Task.objects.using(db).get(pk=pk)
+        if task.task_id:
+            return get_progress(request, task_id=task.task_id)
+        else:
+            if task.status == Task.Status.PENDING:
+                ctx = get_task_progress_pending()
+            elif task.status == Task.Status.COMPLETED:
+                ctx = get_task_progress_success()
+            else:
+                ctx = get_task_progress_revoked()
+    except Task.DoesNotExist:
+        ctx = get_task_progress_revoked()
+    return HttpResponse(json.dumps(ctx), content_type='application/json')
+

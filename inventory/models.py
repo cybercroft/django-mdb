@@ -25,10 +25,10 @@ class AbstractTask(models.Model):
         DB_IMPORT = 'DB_IMPORT', 'Database Import'
         DB_UPDATE = 'DB_UPDATE', 'Database Update'
         DB_EXPORT = 'DB_EXPORT', 'Database Export'
-        DB_WORKFLOW = 'DB_WORKFLOW', 'Database Workflow'
 
     created_on = models.DateTimeField(auto_now_add=True, help_text="Timestamp when the task was created")
     updated_on = models.DateTimeField(auto_now=True, help_text="Timestamp when the task was last updated")
+    triggered_on = models.DateTimeField(null=True, blank=True, help_text="Timestamp when the task was triggered")
     database = models.CharField(max_length=100, help_text="Alias of the database where the task is saved")
     name = models.CharField(max_length=255, help_text="Name of the task")
     task_id = models.CharField(max_length=255, null=True, blank=True)  # Celery task ID
@@ -54,11 +54,31 @@ class AbstractTask(models.Model):
         return f"{self.name} ({self.get_status_display()})"
 
     @property
+    def datetime_created(self):
+        return self.created_on.strftime("%d/%m/%Y - %H:%M")
+
+    @property
+    def datetime_updated(self):
+        return self.updated_on.strftime("%d/%m/%Y - %H:%M")
+
+    @property
+    def date_created(self):
+        return self.created_on.strftime("%d/%m/%Y")
+
+    @property
+    def date_updated(self):
+        return self.updated_on.strftime("%d/%m/%Y")
+
+    @property
     def progress_detail(self):
         return f"{self.get_type_display()}: {self.current} of {self.total}"
         
     @property
     def progress_percent(self):
+        return f"{self.percent * 100:.2f}%"    
+    
+    @property
+    def percent(self):
         return self.current / self.total if self.total else 0
 
 

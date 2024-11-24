@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-4">Tasks per Database</h1>
+
+    {% for db_alias, tasks in all_tasks.items %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                Database: {{ db_alias }}
+            </div>
+            <div class="card-body">
+                {% if tasks|length > 0 %}
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Updated</th>
+                                <th>Database</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Progress</th>
+                                <th>Task ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                                <tr>
+                                    <td><span class="badge {{ task.status|lower }}-badge">{{ task.get_status_display }}</span></td>
+                                    <td>{{ task.datetime_updated }}</td>
+                                    <td>{{ task.database }}</td>
+                                    <td>{{ task.name }}</td>
+                                    <td>{{ task.get_type_display }}</td>
+                                    <td>{{ task.progress_percent }}</td>
+                                    <td>{{ task.task_id }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-danger">No tasks available in this database.</p>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

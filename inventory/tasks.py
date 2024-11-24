@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils import timezone as tz
 from celery import chain, group, shared_task
 from celery_progress.backend import ProgressRecorder
 from .models import Task, Product
@@ -13,7 +14,6 @@ class TaskProgressRecorder(ProgressRecorder):
     def set_progress(self, current, total, description=""):
         self.db_task.current = current
         self.db_task.total = total 
-        self.db_task.percent = current / total
         self.db_task.save(using=self.db_alias)
         detail = description if description else self.db_task.progress_detail
         return super().set_progress(current, total, detail)
@@ -26,6 +26,7 @@ def trigger_task(obj, db_alias, task_id):
         return f"Task with id '{task_id}' not found in database '{db_alias}'."
 
     # Sync the Celery runtime task ID with the database
+    db_task.triggered_on = tz.now()
     db_task.task_id = obj.request.id 
     db_task.status = Task.Status.RUNNING
     db_task.save(using=db_alias)
@@ -76,6 +77,9 @@ class WorkflowStep:
     @property
     def progress_percent(self):
         return self.progress_current / self.progress_total
+
+    def add_task(self, task: Task):
+        self.tasks.append(task)
     
     def get_celery_task(self, db_task: Task, db_alias):
         if db_task.type == Task.Type.DB_IMPORT:
@@ -147,12 +151,12 @@ class ImportWorkflow(Workflow):
     def __init__(self, db_alias="default"):
         super().__init__(db_alias)
        
-    @property
-    def is_triggered(self): 
+    @staticmethod
+    def is_triggered(db_alias): 
         # Check if workflow task is triggered 
         status_active = [Task.Status.PENDING, Task.Status.RUNNING]
         types_accepted = [Task.Type.DB_IMPORT, Task.Type.DB_UPDATE, Task.Type.DB_EXPORT]
-        return Task.objects.using(self.db_alias).filter(status__in=status_active, type__in=types_accepted).exists()
+        return Task.objects.using(db_alias).filter(status__in=status_active, type__in=types_accepted).exists()
     
     def setup(self):
         
@@ -164,12 +168,13 @@ class ImportWorkflow(Workflow):
                 type=Task.Type.DB_IMPORT,
                 defaults={
                     'task_id': None,
+                    'database': self.db_alias,
                     'status': Task.Status.PENDING,
                     'current': 0,
                     'total': 500000
                 }
             )
-            import_step.tasks.append(db_task)
+            import_step.add_task(db_task)
         self.add_step(import_step)
         
         # 2. WorkflowStep: Update
@@ -180,12 +185,13 @@ class ImportWorkflow(Workflow):
                 type=Task.Type.DB_UPDATE,
                 defaults={
                     'task_id': None,
+                    'database': self.db_alias,
                     'status': Task.Status.PENDING,
                     'current': 0,
                     'total': 150000
                 }
             )
-            update_step.tasks.append(db_task)
+            update_step.add_task(db_task)
         self.add_step(update_step)
             
         # 3. WorkflowStep: Export
@@ -196,17 +202,20 @@ class ImportWorkflow(Workflow):
                 type=Task.Type.DB_EXPORT,
                 defaults={
                     'task_id': None,
+                    'database': self.db_alias,
                     'status': Task.Status.PENDING,
                     'current': 0,
                     'total': 50000
                 }
             )
-            export_step.tasks.append(db_task)
+            export_step.add_task(db_task)
         self.add_step(export_step)        
         
 
 @shared_task(bind=True)
 def run_workflow(self, db_alias):
+    if ImportWorkflow.is_triggered(db_alias):
+        return
     workflow = ImportWorkflow(db_alias=db_alias)
     workflow.setup()
     workflow.run()
