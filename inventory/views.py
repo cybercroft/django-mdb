@@ -3,8 +3,8 @@ from django.views.decorators.cache import never_cache
 from django.shortcuts import render, redirect
 from celery_progress.views import get_progress
 from inventory.models import Product, Task
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings
-from django.http import HttpResponse
 from .tasks import run_all_workflows
 
 
@@ -38,7 +38,25 @@ def list_all_tasks(request):
     return render(request, 'inventory/workflow/tasks.html', {'all_tasks': all_tasks})
 
 
-def workflow_progress(request):
+def calculate_total_progress(tasks):
+    progress_current = 0
+    progress_total = 0
+    for task in tasks:
+        progress_current += task.current
+        progress_total += task.total
+    return 100 * progress_current / progress_total if progress_total else 0
+
+
+def workflow_progress(request, db_alias):
+    try:
+        tasks = Task.objects.using(db_alias).all()
+        total_progress = calculate_total_progress(tasks)
+        return JsonResponse({'progress_percent': total_progress}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def workflow_progress_all(request):
     workflows = {}
     
     databases = set(settings.DATABASES.keys())
@@ -47,17 +65,9 @@ def workflow_progress(request):
     # Group tasks by database alias
     for db_alias in databases:
         tasks = Task.objects.using(db_alias).all().order_by('triggered_on', 'pk')
-        progress_current = 0
-        progress_total = 0
-        for task in tasks:
-            progress_current += task.current
-            progress_total += task.total
-            
         workflows[db_alias] = {
             "tasks": tasks,
-            "progress_current": progress_current,
-            "progress_total": progress_total,
-            "progress_percent": 100 * progress_current / progress_total if progress_total else 0,
+            "progress_percent": calculate_total_progress(tasks)
         }
 
     return render(request, "inventory/workflow/progress.html", {"workflows": workflows})
@@ -65,7 +75,7 @@ def workflow_progress(request):
 
 def trigger_workflows(request):
     run_all_workflows.apply_async()
-    return redirect('workflow_progress')
+    return redirect('workflow_progress_all')
 
 
 def get_task_progress_pending():
