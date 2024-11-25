@@ -3,6 +3,12 @@
     --bs-primary-rgb: 76, 137, 175;
 }
 
+#overall-progress-container {
+    display: flex; /* Ensure it participates in the flex layout */
+    align-items: center; /* Vertically center the progress bar */
+    margin: 0 20px; /* Optional: Add some horizontal spacing */
+}
+
 /* Manually ensure components use the updated color */
 .btn-primary {
     background-color: var(--bs-primary) !important;

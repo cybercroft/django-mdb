@@ -5,6 +5,7 @@ from celery_progress.views import get_progress
 from inventory.models import Product, Task
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
+from django.db.models import Q
 from .tasks import run_all_workflows
 
 
@@ -71,6 +72,34 @@ def workflow_progress_all(request):
         }
 
     return render(request, "inventory/workflow/progress.html", {"workflows": workflows})
+
+
+def overall_progress(request):
+    databases = set(settings.DATABASES.keys())
+    databases.remove("default")
+
+    overall_current = 0
+    overall_total = 0
+    is_running_or_pending = False
+
+    for db_alias in databases:
+        try:
+            tasks = Task.objects.using(db_alias).all()
+            for task in tasks:
+                overall_current += task.current
+                overall_total += task.total
+            if tasks.filter(Q(status=Task.Status.PENDING) | Q(status=Task.Status.RUNNING)).exists():
+                is_running_or_pending = True
+                
+                
+        except Exception:
+            pass
+
+    progress = (overall_current / overall_total * 100) if overall_total > 0 else 0
+    return JsonResponse({
+        "progress": round(progress, 2),
+        "is_running_or_pending": is_running_or_pending,
+    })
 
 
 def trigger_workflows(request):
