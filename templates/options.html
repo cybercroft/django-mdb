@@ -16,9 +16,22 @@
             <li class="nav-item">
                 <a class="nav-link text-primary" href="{% url 'list_all_tasks' %}">List Tasks</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link text-primary" href="{% url 'trigger_workflows' %}">Start Workflows</a>
+            <li class="nav-item dropdown">
+                <a 
+                    class="nav-link dropdown-toggle text-primary" href="#" id="workflowsDropdown" 
+                    role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Workflows
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="workflowsDropdown">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'trigger_workflows' %}">Start Workflows</a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'terminate_all_tasks' %}">Delete Workflows</a>
+                    </li>
+                </ul>
             </li>
+
         </ul>
     </div>
 </div>

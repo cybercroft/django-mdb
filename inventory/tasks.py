@@ -1,8 +1,9 @@
 from django.conf import settings
 from django.utils import timezone as tz
-from celery import chain, group, shared_task
+from celery import shared_task
 from celery_progress.backend import ProgressRecorder
-from .models import Task, Product
+from inventory.workflows import WorkflowStep, Workflow
+from inventory.models import Task, Product
 
 
 class TaskProgressRecorder(ProgressRecorder):
@@ -26,124 +27,47 @@ def trigger_task(obj, db_alias, task_id):
         return f"Task with id '{task_id}' not found in database '{db_alias}'."
 
     # Sync the Celery runtime task ID with the database
-    db_task.triggered_on = tz.now()
     db_task.task_id = obj.request.id 
     db_task.status = Task.Status.RUNNING
     db_task.save(using=db_alias)
     
-    recorder = TaskProgressRecorder(obj, db_task)
+    recorder = TaskProgressRecorder(celery_task=obj, db_task=db_task, db_alias=db_alias)
     
     # Task logic goes here...
     for i in range(1, db_task.total+1):
         if i % 1000 == 0:
             recorder.set_progress(i, db_task.total)
             
-    db_task.current = db_task.total
     db_task.status = Task.Status.COMPLETED
     db_task.save(using=db_alias)
+    recorder.set_progress(db_task.total, db_task.total)
     
     return f"{db_task.get_type_display()} completed for {db_alias}"
 
 
-@shared_task(bind=True)
-def import_task(self, db_alias, task_id):
-    trigger_task(self, db_alias, task_id)
+@shared_task(bind=True) # First-Task in chain
+def trigger_preprocess_task(self, db_alias, task_id):
+    return trigger_task(self, db_alias, task_id)
 
 
 @shared_task(bind=True)
-def update_task(self, res, db_alias, task_id):
-    trigger_task(self, db_alias, task_id)
+def trigger_import_task(self, res, db_alias, task_id):
+    return trigger_task(self, db_alias, task_id)
 
 
 @shared_task(bind=True)
-def export_task(self, res, db_alias, task_id):
-    trigger_task(self, db_alias, task_id)
+def trigger_update_task(self, res, db_alias, task_id):
+    return trigger_task(self, db_alias, task_id)
 
 
-class WorkflowStep:
-    def __init__(self, name="", tasks=None, parallel=True):
-        self.name = name 
-        self.tasks = tasks or []
-        self.parallel = parallel
-    
-    @property
-    def progress_total(self):
-        return sum([task.total for task in self.tasks]) 
-    
-    @property
-    def progress_current(self):
-        return sum([task.current for task in self.tasks]) 
-    
-    @property
-    def progress_percent(self):
-        return self.progress_current / self.progress_total
-
-    def add_task(self, task: Task):
-        self.tasks.append(task)
-    
-    def get_celery_task(self, db_task: Task, db_alias):
-        if db_task.type == Task.Type.DB_IMPORT:
-            return import_task.s(db_alias, db_task.id) 
-        elif db_task.type == Task.Type.DB_UPDATE:
-            return update_task.s(db_alias, db_task.id)
-        elif db_task.type == Task.Type.DB_EXPORT:
-            return export_task.s(db_alias, db_task.id)
-        else:
-            raise ValueError(f"Unknown task type: {db_task.type}")
-
-    def execute(self, db_alias):
-        if not self.tasks:
-            return None
-        
-        # Parallel execution
-        if self.parallel:
-            if len(self.tasks) == 1:
-                return self.get_celery_task(self.tasks[0], db_alias)
-            return group(self.get_celery_task(task, db_alias) for task in self.tasks)
-        
-        # Sequential execution
-        if len(self.tasks) == 1:
-            return self.get_celery_task(self.tasks[0], db_alias)
-        task_chain = chain(self.get_celery_task(self.tasks[0], db_alias))
-        for task in self.tasks[1:]:
-            task_chain |= self.get_celery_task(task, db_alias)
-        return task_chain
+@shared_task(bind=True)
+def trigger_export_task(self, res, db_alias, task_id):
+    return trigger_task(self, db_alias, task_id)
 
 
-class Workflow:
-    def __init__(self, db_alias):
-        self.db_alias = db_alias
-        self.steps = []
-
-    @property
-    def progress_current(self):
-        return sum([step.progress_current for step in self.steps])
-    
-    @property
-    def progress_total(self):
-        return sum([step.progress_total for step in self.steps])
-    
-    @property
-    def progress_percent(self):
-        return self.progress_current / self.progress_total
-
-    def add_step(self, step):
-        self.steps.append(step)
-
-    def run(self):
-        workflow_chain = None
-
-        for step in self.steps:
-            step_execution = step.execute(self.db_alias)
-            if not step_execution:
-                continue
-            if workflow_chain is None:
-                workflow_chain = step_execution
-            else:
-                workflow_chain = workflow_chain | step_execution
-
-        if workflow_chain:
-            workflow_chain.apply_async()    
+@shared_task(bind=True)
+def trigger_postprocess_task(self, res, db_alias, task_id):
+    return trigger_task(self, db_alias, task_id)
 
 
 class ImportWorkflow(Workflow):
@@ -155,61 +79,68 @@ class ImportWorkflow(Workflow):
     def is_triggered(db_alias): 
         # Check if workflow task is triggered 
         status_active = [Task.Status.PENDING, Task.Status.RUNNING]
-        types_accepted = [Task.Type.DB_IMPORT, Task.Type.DB_UPDATE, Task.Type.DB_EXPORT]
+        types_accepted = [Task.Type.DB_IMPORT, Task.Type.DB_UPDATE, Task.Type.DB_EXPORT, Task.Type.DB_PROCESS]
         return Task.objects.using(db_alias).filter(status__in=status_active, type__in=types_accepted).exists()
+
+    def create_task(self, task_name:str, task_type:Task.Type, total=1):
+        db_task, is_created = Task.objects.using(self.db_alias).update_or_create(
+            name=task_name,
+            type=task_type,
+            defaults={
+                'task_id': None,
+                'database': self.db_alias,
+                'status': Task.Status.PENDING,
+                'triggered_on': tz.now(),
+                'current': 0,
+                'total': total 
+            }
+        )
+        return db_task
     
-    def setup(self):
-        
-        # 1. WorkflowStep: Import
+    def _setup_preprocess_step(self):
+        task_type = Task.Type.DB_PROCESS
+        pre_process_step = WorkflowStep(name="Pre-Process Step")
+        db_task = self.create_task(task_name="Pre-Process", task_type=task_type, total=10000)
+        pre_process_step.add_task(task=db_task, func=trigger_preprocess_task.s(self.db_alias, db_task.pk))
+        self.add_step(pre_process_step)        
+
+    def _setup_import_step(self):
+        task_type = Task.Type.DB_IMPORT
         import_step = WorkflowStep(name="Import Step", parallel=True)
         for i in range(1, 4):
-            db_task, is_created = Task.objects.using(self.db_alias).update_or_create(
-                name=f"{Task.Type.DB_IMPORT}_{i}",
-                type=Task.Type.DB_IMPORT,
-                defaults={
-                    'task_id': None,
-                    'database': self.db_alias,
-                    'status': Task.Status.PENDING,
-                    'current': 0,
-                    'total': 500000
-                }
-            )
-            import_step.add_task(db_task)
+            db_task = self.create_task(task_name=f"{task_type}_{i}", task_type=task_type, total=500000)
+            import_step.add_task(task=db_task, func=trigger_import_task.s(self.db_alias, db_task.pk))
         self.add_step(import_step)
         
-        # 2. WorkflowStep: Update
+    def _setup_update_step(self):
+        task_type = Task.Type.DB_UPDATE
         update_step = WorkflowStep(name="Update Step", parallel=False)
         for i in range(1, 4):
-            db_task, is_created = Task.objects.using(self.db_alias).update_or_create(
-                name=f"{Task.Type.DB_UPDATE}_{i}",
-                type=Task.Type.DB_UPDATE,
-                defaults={
-                    'task_id': None,
-                    'database': self.db_alias,
-                    'status': Task.Status.PENDING,
-                    'current': 0,
-                    'total': 150000
-                }
-            )
-            update_step.add_task(db_task)
+            db_task = self.create_task(task_name=f"{task_type}_{i}", task_type=task_type, total=500000)
+            update_step.add_task(task=db_task, func=trigger_update_task.s(self.db_alias, db_task.pk))
         self.add_step(update_step)
-            
-        # 3. WorkflowStep: Export
+        
+    def _setup_export_step(self):
+        task_type = Task.Type.DB_EXPORT
         export_step = WorkflowStep(name="Export Step", parallel=True)
         for i in range(1, 4):
-            db_task, is_created = Task.objects.using(self.db_alias).update_or_create(
-                name=f"{Task.Type.DB_EXPORT}_{i}",
-                type=Task.Type.DB_EXPORT,
-                defaults={
-                    'task_id': None,
-                    'database': self.db_alias,
-                    'status': Task.Status.PENDING,
-                    'current': 0,
-                    'total': 50000
-                }
-            )
-            export_step.add_task(db_task)
+            db_task = self.create_task(task_name=f"{task_type}_{i}", task_type=task_type, total=200000)
+            export_step.add_task(task=db_task, func=trigger_export_task.s(self.db_alias, db_task.pk))
         self.add_step(export_step)        
+        
+    def _setup_postprocess_step(self):
+        task_type = Task.Type.DB_PROCESS
+        post_process_step = WorkflowStep(name="Post-Process Step")
+        db_task = self.create_task(task_name="Post-Process", task_type=task_type, total=5000)
+        post_process_step.add_task(task=db_task, func=trigger_postprocess_task.s(self.db_alias, db_task.pk))
+        self.add_step(post_process_step)        
+    
+    def setup(self):
+        self._setup_preprocess_step()
+        self._setup_import_step()
+        self._setup_update_step()
+        self._setup_export_step()
+        self._setup_postprocess_step()
         
 
 @shared_task(bind=True)
@@ -224,4 +155,5 @@ def run_workflow(self, db_alias):
 @shared_task(bind=True)
 def run_all_workflows(self):
     databases = [db_alias for db_alias in settings.DATABASES if db_alias != "default"]
-    return group(run_workflow(db_alias) for db_alias in databases)
+    for db_alias in databases:
+        run_workflow(db_alias) 

@@ -1,5 +1,6 @@
 # inventory/models.py
 from django.db import models
+from common.utils import date_to_str, datetime_to_str
 
 
 class Product(models.Model):
@@ -25,6 +26,7 @@ class AbstractTask(models.Model):
         DB_IMPORT = 'DB_IMPORT', 'Database Import'
         DB_UPDATE = 'DB_UPDATE', 'Database Update'
         DB_EXPORT = 'DB_EXPORT', 'Database Export'
+        DB_PROCESS = 'DB_PROCESS', 'Database Process'
 
     created_on = models.DateTimeField(auto_now_add=True, help_text="Timestamp when the task was created")
     updated_on = models.DateTimeField(auto_now=True, help_text="Timestamp when the task was last updated")
@@ -55,20 +57,28 @@ class AbstractTask(models.Model):
 
     @property
     def datetime_created(self):
-        return self.created_on.strftime("%d/%m/%Y - %H:%M")
+        return datetime_to_str(date=self.created_on)
 
     @property
     def datetime_updated(self):
-        return self.updated_on.strftime("%d/%m/%Y - %H:%M")
+        return datetime_to_str(date=self.updated_on)
 
     @property
+    def datetime_triggered(self):
+        return datetime_to_str(date=self.triggered_on)
+    
+    @property
     def date_created(self):
-        return self.created_on.strftime("%d/%m/%Y")
+        return date_to_str(date=self.created_on)
 
     @property
     def date_updated(self):
-        return self.updated_on.strftime("%d/%m/%Y")
+        return date_to_str(date=self.updated_on)
 
+    @property
+    def date_triggered(self):
+        return date_to_str(date=self.triggered_on)
+    
     @property
     def progress_detail(self):
         return f"{self.get_type_display()}: {self.current} of {self.total}"
@@ -83,4 +93,12 @@ class AbstractTask(models.Model):
 
 
 class Task(AbstractTask):
-    pass
+    class Meta:
+        ordering = ['triggered_on']
+        verbose_name = 'Task'
+        verbose_name_plural = 'Tasks'
+    
+    @property
+    def db_alias(self):
+        return self._state.db
+        

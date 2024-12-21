@@ -10,4 +10,5 @@ urlpatterns = [
     path('overall-progress/', views.overall_progress, name='overall_progress'),    
     path('trigger-workflows/', views.trigger_workflows, name='trigger_workflows'),
     path('task-progress/<str:db>/<int:pk>/', views.task_progress, name='task_progress'),
+    path('terminate-all-tasks/', views.terminate_and_cleanup, name='terminate_all_tasks'),    
 ]

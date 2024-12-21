@@ -1,12 +1,17 @@
 :root {
     --bs-primary: #4c89af;
     --bs-primary-rgb: 76, 137, 175;
+    --bs-primary-dark: #1f5f87;
+    --bs-primary-dark-rgb: 31, 95, 135;
 }
 
 #overall-progress-container {
-    display: flex; /* Ensure it participates in the flex layout */
-    align-items: center; /* Vertically center the progress bar */
-    margin: 0 20px; /* Optional: Add some horizontal spacing */
+    display: flex; 
+    align-items: center; 
+    margin: 0 20px; 
+}
+#overall-progress-bar {
+    transition: width 0.5s ease-in-out;
 }
 
 /* Manually ensure components use the updated color */
@@ -20,6 +25,9 @@
 }
 .text-primary {
     color: var(--bs-primary) !important;
+}
+.text-primary-dark {
+    color: var(--bs-primary-dark) !important;
 }
 
 .fill { 
@@ -35,4 +43,29 @@
 }
 .completed-badge { 
     background-color: green; 
+}
+
+.progress-container-slim { 
+    height: 14px;
+    font-size: 9px; 
+}
+
+.task-progress-bar { 
+    background-color: var(--bs-primary);
+}
+.task-progress-bar-success { 
+    background-color: green; 
+}
+.task-progress-bar-error { 
+    background-color: red; 
+}
+
+.workflow-progress-bar { 
+    background-color: var(--bs-primary-dark);
+}
+.workflow-progress-bar-success { 
+    background-color: green; 
+}
+.workflow-progress-bar-error { 
+    background-color: red; 
 }

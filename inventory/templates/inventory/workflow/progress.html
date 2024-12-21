@@ -12,12 +12,13 @@
                     Workflow: {{ db_alias }}
                 </div>
                 <div class="card-body">
-                    <p>Progress: {{ data.progress_percent|floatformat:2 }}%</p>
+                    <p id="progress-text-{{db_alias}}">Progress: {{ data.progress_percent|floatformat:2 }}%</p>
                     <div class="progress mb-3">
-                        <div id="progress-bar-{{ db_alias }}" class="progress-bar" role="progressbar" 
-                             style="width: {{ data.progress_percent }}%;" 
-                             aria-valuenow="{{ data.progress_percent }}" 
-                             aria-valuemin="0" aria-valuemax="100">
+                        <div id="progress-bar-{{ db_alias }}" role="progressbar" 
+                            class="progress-bar progress-bar-animated workflow-progress-bar" 
+                            style="width: {{ data.progress_percent }}%;" 
+                            aria-valuenow="{{ data.progress_percent }}" 
+                            aria-valuemin="0" aria-valuemax="100">
                             {{ data.progress_percent|floatformat:2 }}%
                         </div>
                     </div>
@@ -28,7 +29,10 @@
                             <strong>{{ task.name }}</strong>
                             <div class="progress-wrapper py-2">
                                 <div class="progress">
-                                    <div id="progress-bar-{{ task.database }}-{{ task.pk }}" data-alias="{{db_alias}}" class="progress-bar task-progress-bar progress-bar-animated" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div id="progress-bar-{{ task.database }}-{{ task.pk }}" role="progressbar" 
+                                    class="progress-bar progress-bar-animated task-progress-bar" 
+                                    data-alias="{{db_alias}}" style="width: 0%;" 
+                                    aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
                                 <div id="progress-bar-message-{{ task.database }}-{{ task.pk }}" class="mt-2 text-center"></div>
                             </div>
@@ -46,11 +50,44 @@
 {% block js %}
 <script src="{% static 'celery_progress/celery_progress.js' %}"></script>
 <script>
-    function getProgress(progressBarElement, progressBarMessageElement, progress) {
-        if (progressBarElement) {
-            progressBarElement.style.width = progress.percent + "%";
-            progressBarElement.innerText = progress.percent + "%";
+    function updateWorkflowProgressBar(workflowProgressBar, data) {
+        workflowProgressBar.style.width = `${data.progress_percent}%`;
+        workflowProgressBar.innerText = `${data.progress_percent}%`;
+        
+        if (data.is_complete === true) {
+            workflowProgressBar.classList.remove("progress-bar-striped");
+            progressBarElement.classList.remove("progress-bar-animated");
+            workflowProgressBar.classList.remove("workflow-progress-bar");
+            workflowProgressBar.classList.add("workflow-progress-bar-success");
+        } else if (data.is_active === true) {
+            workflowProgressBar.classList.add('progress-bar-striped');
+        } else {
+            workflowProgressBar.classList.remove("progress-bar-striped");
+            progressBarElement.classList.remove("progress-bar-animated");
+            workflowProgressBar.classList.remove("workflow-progress-bar");
+            workflowProgressBar.classList.add("workflow-progress-bar-error");
         }
+    }
+
+    function updateTotalProgress(dbAlias) {
+        fetch(`/workflow-progress/${dbAlias}/`) // Replace with your URL pattern
+            .then(response => response.json())
+            .then(data => {
+                const workflowProgressText = document.getElementById(`progress-text-${dbAlias}`);
+                const workflowProgressBar = document.getElementById(`progress-bar-${dbAlias}`);
+                if (workflowProgressText) {
+                    workflowProgressText.textContent = `Progress: ${data.progress_percent}%`;
+                }
+                if (workflowProgressBar) {
+                    updateWorkflowProgressBar(workflowProgressBar, data);
+                }
+            })
+            .catch(error => {
+                console.error("Error updating workflow progress:", error);
+            });
+    }
+
+    function getProgress(progressBarElement, progressBarMessageElement, progress) {
         if (progressBarMessageElement) {
             var description = progress.description || "";
             if (progress.current === 0) {
@@ -63,46 +100,47 @@
                 progressBarMessageElement.textContent = description;
             }
         }
-    }
-
-    function updateTotalProgress(dbAlias) {
-        fetch(`/workflow-progress/${dbAlias}/`) // Replace with your URL pattern
-            .then(response => response.json())
-            .then(data => {
-                const workflowProgressBar = document.getElementById(`progress-bar-${dbAlias}`);
-                if (workflowProgressBar) {
-                    workflowProgressBar.style.width = data.progress_percent + "%";
-                    workflowProgressBar.innerText = `${data.progress_percent.toFixed(2)}%`;
-                }
-            })
-            .catch(error => {
-                console.error("Error updating workflow progress:", error);
-            });
+        if (progressBarElement) {
+            progressBarElement.style.width = `${progress.percent}%`;
+            progressBarElement.innerText = `${progress.percent}%`;
+            const dbAlias = progressBarElement.dataset.alias;
+            if (dbAlias) {
+                updateTotalProgress(dbAlias);
+            }   
+        }
     }
 
     function progressSuccess(progressBarElement, progressBarMessageElement) {
         if (progressBarMessageElement) {
-            progressBarMessageElement.textContent = "Task completed!";
+            progressBarMessageElement.textContent = "";
         }
-        const dbAlias = progressBarElement.dataset.alias;
-        if (dbAlias) {
-            updateTotalProgress(dbAlias);
+        if (progressBarElement) {
+            progressBarElement.classList.remove("progress-bar-animated");
+            progressBarElement.classList.remove("task-progress-bar");
+            progressBarElement.classList.add("task-progress-bar-success");
+            progressBarElement.style.width = "100%";
+            progressBarElement.innerText = "Task completed!";
+            const dbAlias = progressBarElement.dataset.alias;
+            if (dbAlias) {
+                updateTotalProgress(dbAlias);
+            }
         }
     }
 
     function progressError(progressBarElement, progressBarMessageElement, error) {
-        if (progressBarElement) {
-            progressBarElement.classList.remove("progress-bar-animated");
-            progressBarElement.classList.add("bg-danger");
-            progressBarElement.style.width = "100%";
-            progressBarElement.innerText = "Error!";
-        }
         if (progressBarMessageElement) {
             progressBarMessageElement.textContent = "An error occurred while processing the task.";
         }
-        const dbAlias = progressBarElement.dataset.alias;
-        if (dbAlias) {
-            updateTotalProgress(dbAlias);
+        if (progressBarElement) {
+            progressBarElement.classList.remove("progress-bar-animated");
+            progressBarElement.classList.remove("task-progress-bar");
+            progressBarElement.classList.add("task-progress-bar-error");
+            progressBarElement.style.width = "100%";
+            progressBarElement.innerText = "Task failed!";
+            const dbAlias = progressBarElement.dataset.alias;
+            if (dbAlias) {
+                updateTotalProgress(dbAlias);
+            }
         }
 
         console.error("Error in progress:", error);

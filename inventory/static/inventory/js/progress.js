@@ -1,13 +1,19 @@
-function updateNavbarProgressBar(progress, visible) {
-    const overallProgressContainer = document.getElementById("overall-progress-container");
-    const overallProgressBar = document.getElementById("overall-progress-bar");
+function updateNavbarProgressBar(data) {
 
-    if (visible) {
-        overallProgressContainer.style.display = "block";
-        overallProgressBar.style.width = progress + "%";
-        overallProgressBar.innerText = progress + "%";
-    } else {
-        overallProgressContainer.style.display = "none";
+    const overallProgressContainer = document.getElementById("overall-progress-container");
+
+    if (overallProgressContainer) {
+        if (data.is_active === true) {
+            const overallProgressBar = document.getElementById("overall-progress-bar");
+            overallProgressContainer.style.display = "block";
+            if (overallProgressBar) {
+                const progress = data.progress || 0;
+                overallProgressBar.style.width = `${progress}%`;
+                overallProgressBar.innerText = `${progress}%`;
+            }
+        } else {
+            overallProgressContainer.style.display = "none";
+        }
     }
 }
 
@@ -15,10 +21,7 @@ function pollOverallProgress() {
     fetch("/overall-progress/")
         .then(response => response.json())
         .then(data => {
-            const progress = data.progress || 0;
-            const isRunningOrPending = data.is_running_or_pending || false;
-
-            updateNavbarProgressBar(progress, isRunningOrPending);
+            updateNavbarProgressBar(data);
         })
         .catch(error => console.error("Error fetching overall progress:", error));
 }
